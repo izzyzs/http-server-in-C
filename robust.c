@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-
+#define INIT_LIST_LEN 10;
 typedef enum {
     GET,
     HEAD,
@@ -17,13 +17,31 @@ typedef enum {
     TRACE
 } Method;
 
+
+typedef enum {
+    VERSION_OK,
+    VERSION_INVALID_SYNTAX
+} VersionStatus;
 typedef struct {
     int major;
     int minor;
+    VersionStatus status;
 } Version;
 
 typedef struct {
-    char* absolute_path;
+    char *key;
+    char *value;
+} KeyValuePair;
+
+typedef struct {
+    KeyValuePair *http_header_values;
+    int quantity;
+    int capacity;
+} HTTPHeaderList;
+
+typedef struct {
+    char *absolute_path;
+    // KeyValuePair *query_values;
 } URI;
 
 
@@ -34,10 +52,18 @@ typedef struct {
 } RequestLine;
 
 ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n);
-ssize_t robust_write(int file_descriptor, void *user_buffer, size_t n);
-Method parse_request_method(char* start_pointer);
-URI parse_uri(char* start_pointer);
-RequestLine parse_request_line(char* startp, int length);
+// ssize_t robust_write(int file_descriptor, void *user_buffer, size_t n);
+
+Method parse_request_method(char *start_pointer);
+URI parse_uri(char *start_pointer);
+Version parse_http_version(char *start_pointer);
+
+RequestLine parse_request_line(char *startp, int length);
+
+void print_method(Method m);
+void print_uri(URI u);
+void print_http_version(Version v);
+void print_request_line(RequestLine request);
 
 
 
@@ -88,7 +114,8 @@ ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n) {
              if (char_1 == '\r' && char_2 == '\n') {
                 start_of_unread = char_2_pointer + 1;
                 printf("%.*s\n", (int)(start_of_unread - start_of_line), (char *)start_of_line);
-                parse_request_line((char *)start_of_line, (int)(start_of_unread - start_of_line));
+                RequestLine request = parse_request_line((char *)start_of_line, (int)(start_of_unread - start_of_line));
+                print_request_line(request);
                 // printf("%.*s\n", (int)(start_of_unread - start_of_line), (char *)user_buffer + (start_of_unread - (char*)user_buffer));
             } else {
                 char_1_pointer += 1;
@@ -103,54 +130,41 @@ ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n) {
 
 Method parse_request_method(char *start_pointer) {
     printf("parse_request_method\n");
-    printf("%c", *start_pointer);
     if (*start_pointer == 'G') {
-        printf("GET\n");
         return GET;
     }
     if(*start_pointer == 'H') {
-        printf("HEAD\n");
         return HEAD;
     }
     if (*start_pointer == 'P') {
-        printf("%c\n", *(start_pointer+1));
         if (*(start_pointer + 1) == 'O') {
-            printf("POST\n");
             return POST;
         } else {
-            printf("PUT\n");
             return PUT;
         }
     }
     if(*start_pointer == 'D') {
-        printf("DELETE\n");
         return DELETE;
     }
     if(*start_pointer == 'C') {
-        printf("CONNECT\n");
         return CONNECT;
     }
     if(*start_pointer == 'O') {
-        printf("OPTIONS\n");
         return OPTIONS;
     }
     if(*start_pointer == 'T') {
-        printf("TRACE\n");
         return TRACE;
     }
     return GET;
 }
 
 URI parse_uri(char *start_pointer) {
-    printf("parse_uri:\t");
     int length;
     char *cursor = start_pointer;
     while (*cursor != ' ') {
         cursor++;
     }
     length = cursor - start_pointer;
-    printf("%.*s\n", length, start_pointer);
-    printf("length: %d\n", length);
     char *uri_copy = (char*)malloc((length+1) * sizeof(char));
     memcpy(uri_copy, start_pointer, length);
     uri_copy[length] = '\0';
@@ -158,18 +172,75 @@ URI parse_uri(char *start_pointer) {
     return uri;
 }
 
-RequestLine parse_request_line(char* startp, int length) {
-    Method method = parse_request_method(startp);
-    while (*startp != ' ') {
-        startp++;
+Version parse_http_version(char *start_pointer) {
+    Version version  = {0};
+    int state;
+    if ((state = (*start_pointer != 'H' || *(start_pointer + 1) != 'T' || *(start_pointer + 2) != 'T' || *(start_pointer + 3) != 'P' || *(start_pointer + 4) != '/'))) {
+        version.status = VERSION_INVALID_SYNTAX;
+        return version;
     }
-    startp++;
-    URI uri = parse_uri(startp);
-    while (*startp != ' ') {
-        startp++;
-    }
-    startp++;
+    start_pointer += 5;
+    version.major = *start_pointer++ - '0';
+    version.minor = *++start_pointer - '0';
+    version.status = VERSION_OK;
+    return version;
+}
 
-    RequestLine r = {method, uri, {1, 1}};
+void print_method(Method m) {
+    printf("HTTP METHOD:\t");
+    if (m == GET)
+        printf("GET\n");
+    if(m == HEAD)
+        printf("HEAD\n");
+    if (m == POST) {
+        printf("POST\n");
+    if (m == PUT)
+        printf("PUT\n");
+    }
+    if(m == DELETE)
+        printf("DELETE\n");
+    if(m == CONNECT)
+        printf("CONNECT\n");
+    if (m == OPTIONS)
+        printf("OPTIONS\n");
+    if(m == TRACE)
+        printf("TRACE\n");
+}
+
+void print_http_version(Version v) {
+    if (v.status == VERSION_INVALID_SYNTAX) {
+        printf("ERROR: Invalid Syntax for Version");
+    }
+    printf("HTTP VERSION:\t%d.%d\n", v.major, v.minor);
+}
+
+void print_uri(URI u) {
+    printf("URI:\t\t%s\n", u.absolute_path);
+}
+
+RequestLine parse_request_line(char *start_pointer, int length) {
+    Method method = parse_request_method(start_pointer);
+    while (*start_pointer != ' ') {
+        start_pointer++;
+    }
+    start_pointer++;
+    URI uri = parse_uri(start_pointer);
+    while (*start_pointer != ' ') {
+        start_pointer++;
+    }
+    start_pointer++;
+    Version version = parse_http_version(start_pointer);
+    while (*start_pointer != '\n') {
+        start_pointer++;
+    }
+
+    RequestLine r = {method, uri, version};
     return r;
+}
+
+void print_request_line(RequestLine request) {
+    printf("Request line\n------------\n");
+    print_method(request.method);
+    print_http_version(request.version);
+    print_uri(request.uri);
 }
