@@ -1,0 +1,10 @@
+POST /api/users?role=admin&active=true HTTP/1.1
+Host: localhost:8080
+User-Agent: MyHTTPClient/1.0
+Accept: application/json
+Content-Type: application/json
+Content-Length: 36
+Connection: keep-alive
+X-Request-ID: abc123
+
+{"name":"Ismael","age":22,"active":true}
