@@ -3,12 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
-ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n);
-ssize_t robust_write(int file_descriptor, void *user_buffer, size_t n);
-Method parse_request_method(char* start_pointer);
-URI parse_uri(char* start_pointer);
-RequestLine parse_request_line(char* startp, int length);
 
 typedef enum {
     GET,
@@ -30,11 +26,20 @@ typedef struct {
     char* absolute_path;
 } URI;
 
+
 typedef struct {
     Method method;
     URI uri;
     Version version;
 } RequestLine;
+
+ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n);
+ssize_t robust_write(int file_descriptor, void *user_buffer, size_t n);
+Method parse_request_method(char* start_pointer);
+URI parse_uri(char* start_pointer);
+RequestLine parse_request_line(char* startp, int length);
+
+
 
 
 int main(void) {
@@ -83,6 +88,7 @@ ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n) {
              if (char_1 == '\r' && char_2 == '\n') {
                 start_of_unread = char_2_pointer + 1;
                 printf("%.*s\n", (int)(start_of_unread - start_of_line), (char *)start_of_line);
+                parse_request_line((char *)start_of_line, (int)(start_of_unread - start_of_line));
                 // printf("%.*s\n", (int)(start_of_unread - start_of_line), (char *)user_buffer + (start_of_unread - (char*)user_buffer));
             } else {
                 char_1_pointer += 1;
@@ -96,34 +102,55 @@ ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n) {
 }
 
 Method parse_request_method(char *start_pointer) {
-    if (*start_pointer == "G")
+    printf("parse_request_method\n");
+    printf("%c", *start_pointer);
+    if (*start_pointer == 'G') {
+        printf("GET\n");
         return GET;
-    if(*start_pointer == 'H')
-    return HEAD;
-    if (*start_pointer == 'P') {
-        if (*(start_pointer + 1) == 'O')
-        return POST;
-        else
-        return PUT;
     }
-    if(*start_pointer == 'D')
+    if(*start_pointer == 'H') {
+        printf("HEAD\n");
+        return HEAD;
+    }
+    if (*start_pointer == 'P') {
+        printf("%c\n", *(start_pointer+1));
+        if (*(start_pointer + 1) == 'O') {
+            printf("POST\n");
+            return POST;
+        } else {
+            printf("PUT\n");
+            return PUT;
+        }
+    }
+    if(*start_pointer == 'D') {
+        printf("DELETE\n");
         return DELETE;
-    if(*start_pointer == 'C')
+    }
+    if(*start_pointer == 'C') {
+        printf("CONNECT\n");
         return CONNECT;
-    if(*start_pointer == 'O')
+    }
+    if(*start_pointer == 'O') {
+        printf("OPTIONS\n");
         return OPTIONS;
-    if(*start_pointer == 'T')
+    }
+    if(*start_pointer == 'T') {
+        printf("TRACE\n");
         return TRACE;
+    }
+    return GET;
 }
 
 URI parse_uri(char *start_pointer) {
+    printf("parse_uri:\t");
     int length;
     char *cursor = start_pointer;
-    while (cursor != ' ') {
+    while (*cursor != ' ') {
         cursor++;
     }
     length = cursor - start_pointer;
-
+    printf("%.*s\n", length, start_pointer);
+    printf("length: %d\n", length);
     char *uri_copy = (char*)malloc((length+1) * sizeof(char));
     memcpy(uri_copy, start_pointer, length);
     uri_copy[length] = '\0';
@@ -133,12 +160,12 @@ URI parse_uri(char *start_pointer) {
 
 RequestLine parse_request_line(char* startp, int length) {
     Method method = parse_request_method(startp);
-    while (startp != ' ') {
+    while (*startp != ' ') {
         startp++;
     }
     startp++;
     URI uri = parse_uri(startp);
-    while (startp != ' ') {
+    while (*startp != ' ') {
         startp++;
     }
     startp++;
