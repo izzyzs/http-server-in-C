@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-#define INIT_LIST_LEN 10;
+#define INIT_LIST_LEN 10
 typedef enum {
     GET,
     HEAD,
@@ -34,28 +34,31 @@ typedef struct {
 } KeyValuePair;
 
 typedef struct {
-    KeyValuePair *http_header_values;
+    KeyValuePair *items;
     int quantity;
     int capacity;
-} HTTPHeaderList;
+} KeyValueList;
 
 typedef struct {
     char *absolute_path;
-    // KeyValuePair *query_values;
+    KeyValueList *query_values;
 } URI;
-
-
 typedef struct {
     Method method;
     URI uri;
     Version version;
 } RequestLine;
 
+void add_to_list(KeyValueList *list, char *key, char *value);
+
+void lengthen_list(KeyValueList *list);
+
 ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n);
 // ssize_t robust_write(int file_descriptor, void *user_buffer, size_t n);
 
 Method parse_request_method(char *start_pointer);
 URI parse_uri(char *start_pointer);
+KeyValueList *parse_uri_query(char *start_pointer);
 Version parse_http_version(char *start_pointer);
 
 RequestLine parse_request_line(char *startp, int length);
@@ -159,18 +162,105 @@ Method parse_request_method(char *start_pointer) {
 }
 
 URI parse_uri(char *start_pointer) {
+    KeyValueList *query;
     int length;
     char *cursor = start_pointer;
     while (*cursor != ' ') {
+        if (*cursor == '?') {
+            query = parse_uri_query(++cursor);
+            --cursor;
+            break;
+        }
         cursor++;
     }
     length = cursor - start_pointer;
-    char *uri_copy = (char*)malloc((length+1) * sizeof(char));
-    memcpy(uri_copy, start_pointer, length);
-    uri_copy[length] = '\0';
-    URI uri = { uri_copy };
+    char *path = (char*)malloc((length+1) * sizeof(char));
+    memcpy(path, start_pointer, length);
+    path[length] = '\0';
+    URI uri = { path, query };
     return uri;
 }
+
+KeyValueList *allocate_list(int length) {
+    size_t size = length * sizeof(KeyValuePair);
+    KeyValuePair *items = (KeyValuePair*)malloc(size);
+    KeyValueList *list = (KeyValueList*)malloc(sizeof(void*) + sizeof(int) + sizeof(int));
+    list->items = items;
+    list->quantity = 0;
+    list->capacity = length;
+    return list;
+}
+
+KeyValueList* create_list() {
+    KeyValueList *list = allocate_list(INIT_LIST_LEN);
+    return list;
+}
+
+void free_list_items(KeyValueList *list) {
+    free(list->items);
+}
+
+
+void add_to_list(KeyValueList *list_pointer, char *key, char *value) {
+    int space_remaining = list_pointer->capacity - list_pointer->quantity;
+    if (space_remaining == 0) {
+        lengthen_list(list_pointer);
+    }
+    KeyValuePair *empty_value = list_pointer->items + list_pointer->quantity;
+    empty_value->key = key;
+    empty_value->value = value;
+    list_pointer->quantity++;
+}
+
+void lengthen_list(KeyValueList *list_pointer) {
+    int quantity = list_pointer->quantity;
+    int new_length = list_pointer->capacity * 2;
+    KeyValuePair *new_items = (KeyValuePair*)malloc(sizeof(KeyValuePair) * new_length);
+    memcpy(list_pointer->items, new_items, new_length);
+    free_list_items(list_pointer);
+    list_pointer->items = new_items;
+    list_pointer->capacity = new_length;
+}
+
+KeyValueList *parse_uri_query(char *start_pointer) {
+    KeyValueList *list_pointer = create_list();
+    int token_length = 0;
+    char *slow_cursor = start_pointer, *fast_cursor = start_pointer;
+    char  *text_pointer, *key = NULL, *value = NULL;
+    while (*fast_cursor != '#' && *fast_cursor != ' ') {
+        fast_cursor++;
+        if (*fast_cursor == '=') {
+            token_length = fast_cursor-slow_cursor;
+            text_pointer = (char*)malloc((token_length+1) * sizeof(char));
+            memcpy(text_pointer, slow_cursor, token_length);
+            text_pointer[token_length] = '\0';
+            key = text_pointer;
+            slow_cursor = ++fast_cursor;
+        } else if (*fast_cursor == '&') {
+            token_length = fast_cursor-slow_cursor;
+            text_pointer = (char*)malloc((token_length+1) * sizeof(char));
+            memcpy(text_pointer, slow_cursor, token_length);
+            text_pointer[token_length] = '\0';
+            value = text_pointer;
+            slow_cursor = ++fast_cursor;
+        }
+        if(key && value) {
+            add_to_list(list_pointer, key, value);
+            key = NULL;
+            value = NULL;
+        }
+    }
+    token_length = fast_cursor-slow_cursor;
+    text_pointer = (char*)malloc((token_length+1) * sizeof(char));
+    memcpy(text_pointer, slow_cursor, token_length);
+    text_pointer[token_length] = '\0';
+    value = text_pointer;
+    if(key && value) {
+            add_to_list(list_pointer, key, value);
+        }
+    return list_pointer;
+}
+
 
 Version parse_http_version(char *start_pointer) {
     Version version  = {0};
@@ -209,13 +299,19 @@ void print_method(Method m) {
 
 void print_http_version(Version v) {
     if (v.status == VERSION_INVALID_SYNTAX) {
-        printf("ERROR: Invalid Syntax for Version");
+        printf("ERROR: Invalid Syntax for HTTP version.");
     }
     printf("HTTP VERSION:\t%d.%d\n", v.major, v.minor);
 }
 
 void print_uri(URI u) {
-    printf("URI:\t\t%s\n", u.absolute_path);
+    printf("URI\n---\n");
+    printf("\tPath:\n\t-----\t\n\t\t%s\n", u.absolute_path);
+    printf("\tQuery:\n\t------\n");
+    for (int i = 0; i < u.query_values->quantity; i++) {
+        KeyValuePair item = u.query_values->items[i];
+        printf("\t\tkey:\t%s\t\tvalue:\t%s\n", item.key, item.value);
+    }
 }
 
 RequestLine parse_request_line(char *start_pointer, int length) {
