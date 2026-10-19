@@ -81,7 +81,7 @@ int main(void) {
 }
 
 ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n) {
-
+    RequestLine requestLine = {0};
     ssize_t number_left = n;
     ssize_t number_read;
     char *buffer_pointer = user_buffer;
@@ -102,37 +102,32 @@ ssize_t robust_read(int file_descriptor, void *user_buffer, size_t n) {
         number_left -= number_read; // subtract the number of bytes successfully read from the number of bytes left to be read
         buffer_pointer += number_read; // increment the buffer pointer the number_read amount of bytes.
 
-        printf("number_read: %zd\n", number_read);
-        printf("buffer_pointer: %s\n\n", buffer_pointer);
-
 
         // process the newly read bytes
         char *char_1_pointer = start_of_unread, *char_2_pointer = start_of_unread+1, char_1, char_2;
         for (i = (start_of_unread-(char*)user_buffer); i < (buffer_pointer-start_of_unread); i++) {
             char_1 = *char_1_pointer;
             char_2 = *char_2_pointer;
-            printf("processing bytes\n");
-            printf("i = %ld\n", i);
-            printf("\tchar_1 = %c\n\tchar_2 = %c\n", char_1, char_2);
+            // printf("processing bytes\n");
+            // printf("i = %ld\n", i);
+            // printf("\tchar_1 = %c\n\tchar_2 = %c\n", char_1, char_2);
              if (char_1 == '\r' && char_2 == '\n') {
                 start_of_unread = char_2_pointer + 1;
-                printf("%.*s\n", (int)(start_of_unread - start_of_line), (char *)start_of_line);
-                RequestLine request = parse_request_line((char *)start_of_line, (int)(start_of_unread - start_of_line));
-                print_request_line(request);
-                // printf("%.*s\n", (int)(start_of_unread - start_of_line), (char *)user_buffer + (start_of_unread - (char*)user_buffer));
+                // printf("%.*s\n", (int)(start_of_unread - start_of_line), (char *)start_of_line);
+                requestLine = parse_request_line((char *)start_of_line, (int)(start_of_unread - start_of_line));
             } else {
                 char_1_pointer += 1;
                 char_2_pointer += 1;
             }
-
+            
         }
         start_of_unread = buffer_pointer;
     }
+    print_request_line(requestLine);
     return (n - number_left); // returns the number of bytes filled bytes in the buffer in the case that there is nothing left to be read.
 }
 
 Method parse_request_method(char *start_pointer) {
-    printf("parse_request_method\n");
     if (*start_pointer == 'G') {
         return GET;
     }
