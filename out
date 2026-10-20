@@ -2,7 +2,7 @@ Request line
 ------------
 HTTP METHOD:	POST
 HTTP VERSION:	1.1
-URI
+struct http_uri
 ---
 	Path:
 	-----	
