@@ -6,29 +6,29 @@
 #include "http_request_line.h"
 #include "key_value_list.h"
 
-struct http_request_line_state parse_request_line(struct http_request_line *request_line, char **cursor_p, char *end_p) {
+struct http_request_line_state parse_request_line(struct http_request_line *request_line, struct http_request_line_state req_line_state, char **cursor_p, char *end_p) {
     int uri_state, version_state;
     enum http_method method = NONE;
-    enum http_method_state method_state = NONE;
+    enum http_method_state method_state = HTTP_METHOD_START;
     struct http_uri uri;
     struct http_version version;
     struct http_request_line_state state = {HTTP_REQUEST_LINE_START, REQUEST_LINE_NO_ERR};
 
     // enum http_method_state parse_request_method(char *start_pointer, char* end_pointer, enum http_method *method, enum http_method_state method_state);
-    method_state = parse_request_method(&cursor_p, end_p, &method, method_state);
+    method_state = parse_request_method(cursor_p, end_p, &method, method_state);
     if (method_state == HTTP_METHOD_PARSE_ERR) {
-        state.error = ERROR;
-        state.status = REQUEST_LINE_METHOD_ERR;
+        state.status = ERROR;
+        state.error = REQUEST_LINE_METHOD_ERR;
         return state;
     }
     else if (method_state == HTTP_METHOD_PARSED_AND_NOT_READ) {
         request_line->method = method;
-        state.error = REQUEST_LINE_NO_ERR;
         state.status = HTTP_REQUEST_LINE_METHOD_DONE;
+        state.error = REQUEST_LINE_NO_ERR;
         return state;
     }
 
-    // uri_state = parse_uri(&uri, cursor_p);
+    uri_state = parse_uri(&uri, cursor_p);
     // if (uri_state > 0)
     //     return REQUEST_LINE_URI_ERR;
 
@@ -127,11 +127,14 @@ enum http_method_state parse_request_method(char **cursor, char* end_pointer, en
     return HTTP_METHOD_PARSED_AND_READ;
 }
 
-int parse_uri(struct http_uri* uri, char *start_pointer) {
+int parse_uri(struct http_uri* uri, char *start_pointer, char *end_pointer) {
     struct key_value_list *query;
     int length;
     char *cursor = start_pointer;
     while (*cursor != ' ') {
+        if (cursor != end_pointer) {
+            return 
+        }
         if (*cursor == '?') {
             query = parse_uri_query(++cursor);
             --cursor;

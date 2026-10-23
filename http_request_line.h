@@ -28,6 +28,9 @@ struct http_request_line_state {  enum http_request_line_status status; enum htt
 enum http_method_state {
     HTTP_METHOD_PARSE_ERR=-1, HTTP_METHOD_START, HTTP_METHOD_PARSED_AND_NOT_READ, HTTP_METHOD_PARSED_AND_READ
 };
+// enum http_uri_state {
+//     HTTP_METHOD_PARSE_ERR=-1, HTTP_METHOD_START, HTTP_METHOD_PARSED_AND_NOT_READ, HTTP_METHOD_PARSED_AND_READ
+// };
 
 // struct http_request_line_state parse_request_line(struct http_request_line *request_line, char *cursor_p, char* end_p, int length);
 struct http_request_line_state parse_request_line(struct http_request_line *request_line, struct http_request_line_state req_line_state, char **cursor_p, char *end_p);

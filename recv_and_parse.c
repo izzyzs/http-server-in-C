@@ -59,7 +59,7 @@ void parse(char *buffer, size_t end_of_read, struct http_request_parser_state_ma
     char *cursor = buffer;
     char *end = buffer[end_of_read];
     struct http_request_line req_line;
-    struct http_request_line_state req_line_state = { START, NONE }
+    struct http_request_line_state req_line_state = { HTTP_REQUEST_LINE_START, REQUEST_LINE_NO_ERR };
 
     while (cursor != end) {
         switch (parser_state_mach_p->state) {
