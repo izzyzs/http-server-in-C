@@ -50,6 +50,7 @@ void read_and_parse(int file_desc, char buffer[], ssize_t buffer_size) {
             break;
         } else if (reader_state == CONN_CLOSED) {
             fprintf(stdout, "Client closed connection. Shutting down...\n");
+            break;
         }
         parse(buffer, read_len, &parser_state_machine, &request);
     }
