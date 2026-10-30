@@ -12,7 +12,7 @@ struct http_uri {
     struct key_value_list *query_values;
 };
 
-enum http_method { HTTP_METHOD_ERROR=-1, NONE, GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE };
+enum http_method { HTTP_METHOD_ERROR=-1, NONE, GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS, TRACE };
 
 struct http_request_line {
     enum http_method method;
@@ -36,7 +36,7 @@ enum http_method_state {
         
         
         // case POST || PUT:
-        READ_P_EXPECTING_EITHER_O_OR_U,
+        READ_P_EXPECTING_EITHER_O_OR_U_OR_A,
         //         case POST:
         READ_O_EXPECTING_S_IN_POST,
         READ_S_EXPECTING_T_IN_POST,
@@ -44,6 +44,12 @@ enum http_method_state {
         //         case PUT:
         READ_U_EXPECTING_T_IN_PUT,
         READ_T_EXPECTING_SPACE_AFTER_PUT,
+        //         case PATCH:
+        READ_A_EXPECTING_T_IN_PATCH,
+        READ_T_EXPECTING_C_IN_PATCH,
+        READ_C_EXPECTING_H_IN_PATCH,
+        READ_H_EXPECTING_SPACE_AFTER_PATCH,
+
         
         //         case DELETE:
         READ_D_EXPECTING_FIRST_E_IN_DELETE,

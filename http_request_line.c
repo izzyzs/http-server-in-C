@@ -70,10 +70,94 @@ int method_parsing_for_GET(enum http_method_state *method_state_p, char **cursor
         *method_state_p = READ_G_EXPECTING_E_IN_GET;
         (*cursor)++;
         return 1;
-    } else if (*method_state_p >= READ_G_EXPECTING_E_IN_GET && *method_state_p <= READ_T_EXPECTING_SPACE_AFTER_GET)
+    } else if (*method_state_p >= READ_G_EXPECTING_E_IN_GET && *method_state_p <= READ_T_EXPECTING_SPACE_AFTER_GET) {
         return 1;
+    }
     return 0;
 }
+
+
+int method_parsing_for_HEAD(enum http_method_state *method_state_p, char **cursor) {
+    if (*method_state_p == METHOD_STATE_START && **cursor == 'H') {
+        *method_state_p = READ_H_EXPECTING_E_IN_HEAD;
+        (*cursor)++;
+        return 1;
+    } else if (*method_state_p >= READ_H_EXPECTING_E_IN_HEAD && *method_state_p <= READ_D_EXPECTING_SPACE_AFTER_HEAD) {
+        return 1;
+    }
+    return 0;
+}
+
+// Header lines
+int method_parsing_for_HEAD(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_HEAD(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_PUT_or_POST(enum http_method_state *method_state_p, char **cursor);
+int method_parsing_for_PUT(enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_POST(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_PUT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+void parse_method_for_POST(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+
+// TODO: come implement these functions
+int method_parsing_for_DELETE(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_DELETE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_CONNECT(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_CONNECT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_OPTIONS(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_OPTIONS(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_TRACE(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_TRACE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+
+
+int method_parsing_for_PUT_or_POST(enum http_method_state *method_state_p, char **cursor) {
+    if (*method_state_p == METHOD_STATE_START && **cursor == 'P') {
+        *method_state_p = READ_P_EXPECTING_EITHER_O_OR_U_OR_A;
+        (*cursor)++;
+        return 1;
+    } else if (*method_state_p >= READ_P_EXPECTING_EITHER_O_OR_U_OR_A && *method_state_p <= READ_T_EXPECTING_SPACE_AFTER_PUT) {
+        // note: only possible due to the the state enums that represent parsing
+        // either POST or PUT exist continuously in the enum definition
+        return 1;
+    }
+    return 0;
+}
+
+int method_parsing_for_POST(enum http_method_state *method_state_p, char **cursor) {
+    if (*method_state_p == READ_P_EXPECTING_EITHER_O_OR_U_OR_A && *cursor == 'O') {
+        *method_state_p = READ_O_EXPECTING_S_IN_POST;
+        (*cursor)++;
+        return 1;
+    } else if (*method_state_p == READ_O_EXPECTING_S_IN_POST && *method_state_p == READ_T_EXPECTING_SPACE_AFTER_POST) {
+        return 1;
+    }
+    return 0;
+}
+
+int method_parsing_for_PUT(enum http_method_state *method_state_p, char **cursor, char *end) {
+    if (*method_state_p == READ_P_EXPECTING_EITHER_O_OR_U_OR_A && *cursor == 'U') {
+        *method_state_p = READ_U_EXPECTING_T_IN_PUT;
+        (*cursor)++;
+        return 1;
+    } else if (*method_state_p == READ_U_EXPECTING_T_IN_PUT && *method_state_p == READ_T_EXPECTING_SPACE_AFTER_PUT) {
+        return 1;
+    }
+    return 0;
+}
+
+int method_parsing_for_PATCH(enum http_method_state *method_state_p, char **cursor, char *end) {
+    if (*method_state_p == READ_P_EXPECTING_EITHER_O_OR_U_OR_A && *cursor == 'A') {
+        *method_state_p = READ_A_EXPECTING_T_IN_PATCH;
+        (*cursor)++;
+        return 1;
+    } else if (*method_state_p == READ_A_EXPECTING_T_IN_PATCH && *method_state_p == READ_H_EXPECTING_SPACE_AFTER_PATCH) {
+        return 1;
+    }
+    return 0;
+}
+
+int method_parsing_for_DELETE(enum http_method_state *method_state_p, char **cursor) {}
+int method_parsing_for_CONNECT(enum http_method_state *method_state_p, char **cursor) {}
+int method_parsing_for_OPTIONS(enum http_method_state *method_state_p, char **cursor) {}
+int method_parsing_for_TRACE(enum http_method_state *method_state_p, char **cursor) {}
 
 int method_parsing_not_done(enum http_method_state method_state) {
     return method_state != VALID_METHOD && method_state != INVALID_METHOD;
@@ -99,9 +183,106 @@ void parse_method_for_GET(enum http_method *http_method_p, enum http_method_stat
             *method_state_p = INVALID_METHOD;
             return;
         }
-    }
-    
+    }    
 }
+
+void parse_method_for_HEAD(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
+    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+        if (*method_state_p == READ_H_EXPECTING_E_IN_HEAD && *cursor == 'E') {
+            *method_state_p = READ_E_EXPECTING_A_IN_HEAD;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_E_EXPECTING_A_IN_HEAD && *cursor == 'A') {
+            *method_state_p = READ_A_EXPECTING_D_IN_HEAD;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_A_EXPECTING_D_IN_HEAD && *cursor == 'D') {
+            *method_state_p = READ_D_EXPECTING_SPACE_AFTER_HEAD;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_D_EXPECTING_SPACE_AFTER_HEAD && *cursor == ' ') {
+            (*cursor)++;
+            *method_state_p = VALID_METHOD;
+            *http_method_p = HEAD;
+            return;
+        } else {
+            *method_state_p = INVALID_METHOD;
+            return;
+        }
+    }
+}
+
+void parse_method_for_PUT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
+    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+        if (*method_state_p == READ_U_EXPECTING_T_IN_PUT && *cursor == 'T') {
+            *method_state_p = READ_T_EXPECTING_SPACE_AFTER_PUT;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_T_EXPECTING_SPACE_AFTER_PUT && *cursor == ' ') {
+            (*cursor)++;
+            *method_state_p = VALID_METHOD;
+            *http_method_p = PUT;
+            return;
+        } else {
+            *method_state_p = INVALID_METHOD;
+            return;
+        }
+    }    
+}
+
+void parse_method_for_POST(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
+    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+        if (*method_state_p == READ_O_EXPECTING_S_IN_POST && *cursor == 'S') {
+            *method_state_p = READ_S_EXPECTING_T_IN_POST;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_S_EXPECTING_T_IN_POST && *cursor == 'T') {
+            *method_state_p = READ_T_EXPECTING_SPACE_AFTER_POST;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_T_EXPECTING_SPACE_AFTER_POST && *cursor == ' ') {
+            (*cursor)++;
+            *method_state_p = VALID_METHOD;
+            *http_method_p = POST;
+            return;
+        } else {
+            *method_state_p = INVALID_METHOD;
+            return;
+        }
+    }
+}
+
+void parse_method_for_PATCH(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
+    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+        if (*method_state_p == READ_A_EXPECTING_T_IN_PATCH && *cursor == 'T') {
+            *method_state_p = READ_T_EXPECTING_C_IN_PATCH;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_T_EXPECTING_C_IN_PATCH && *cursor == 'C') {
+            *method_state_p = READ_C_EXPECTING_H_IN_PATCH;
+            (*cursor)++;
+            continue; 
+        } else if (*method_state_p == READ_C_EXPECTING_H_IN_PATCH && *cursor == 'H') {
+            *method_state_p = READ_H_EXPECTING_SPACE_AFTER_PATCH;
+            (*cursor)++;
+            continue;
+        } 
+        else if (*method_state_p == READ_H_EXPECTING_SPACE_AFTER_PATCH && *cursor == ' ') {
+            (*cursor)++;
+            *method_state_p = VALID_METHOD;
+            *http_method_p = PATCH;
+            return;
+        } else {
+            *method_state_p = INVALID_METHOD;
+            return;
+        }
+    }
+}
+
+void parse_method_for_DELETE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {}
+void parse_method_for_CONNECT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {}
+void parse_method_for_OPTIONS(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {}
+void parse_method_for_TRACE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {}
 
 void parse_request_method(struct http_parser_state *parse_state, char **cursor, char *end, enum http_method *method) {
     enum http_method_state *method_state_p = &(parse_state->req_line_state_machine.method_state);
@@ -111,6 +292,16 @@ void parse_request_method(struct http_parser_state *parse_state, char **cursor, 
     while (*cursor != end && method_parsing_not_done(*method_state_p)) {
         if (method_parsing_for_GET(method_state_p, cursor)) {
             parse_method_for_GET(&method, method_state_p, cursor, end);
+        } else if (method_parsing_for_HEAD(method_state_p, cursor)) {
+            parse_method_for_HEAD(&method, method_state_p, cursor, end);
+        } else if (method_parsing_for_PUT_or_POST(method_state_p, cursor)) {
+            if (method_parsing_for_POST(method_state_p, cursor)) {
+                parse_method_for_POST(&method, method_state_p, cursor, end);
+            } else if (method_parsing_for_PUT(method_state_p, cursor)) {
+                parse_method_for_PUT(&method, method_state_p, cursor, end);
+            } else if (method_parsing_for_PATCH(method_state_p, cursor)) {
+                parse_method_for_PATCH(&method, method_state_p, cursor, end);
+            }
         }
     }
     }
