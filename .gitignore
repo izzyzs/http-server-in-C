@@ -1,1 +1,5 @@
-./robust.dSYM/
+robust.dSYM/
+prog.dSYM/
+.DS_Store/
+old/
+

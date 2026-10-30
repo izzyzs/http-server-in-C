@@ -6,13 +6,13 @@
 #include "http_request_line.h"
 #include "key_value_list.h"
 
-struct http_request_line_state parse_request_line(struct http_request_line *request_line, struct http_request_line_state req_line_state, char **cursor_p, char *end_p) {
+enum http_request_line_state parse_request_line(struct http_request_line *request_line, enum http_request_line_state req_line_state_machine, char **cursor_p, char *end_p) {
     int uri_state, version_state;
     enum http_method method = NONE;
     enum http_method_state method_state = HTTP_METHOD_START;
     struct http_uri uri;
     struct http_version version;
-    struct http_request_line_state state = {HTTP_REQUEST_LINE_START, REQUEST_LINE_NO_ERR};
+    enum http_request_line_state state =HTTP_REQUEST_LINE_START;
 
     // enum http_method_state parse_request_method(char *start_pointer, char* end_pointer, enum http_method *method, enum http_method_state method_state);
     method_state = parse_request_method(cursor_p, end_p, &method, method_state);
@@ -61,71 +61,59 @@ char *req_line_err_to_str(enum http_request_line_status status) {
         default: return "";
     }
 }
+       
 
-// static size_t get_method_length(enum http_method method) {
-//     switch (method) {
-//         case GET:
-//             return (size_t)3;
-//         case HEAD:
-//             return (size_t)4;   
-//         case POST:
-//             return (size_t)4;
-//         case PUT:
-//             return (size_t)3;
-//         case DELETE:
-//             return (size_t)6;
-//         case CONNECT:
-//             return (size_t)7;
-//         case OPTIONS:
-//             return (size_t)7;
-//         case TRACE:
-//             return (size_t)5;
-//     }
-// }
 
-enum http_method_state parse_request_method(char **cursor, char* end_pointer, enum http_method *method, enum http_method_state method_state) {
-    
-    if (method_state == HTTP_METHOD_START) {
-        switch (**cursor) {
-            case 'G':
-                *method = GET;
-                break;
-            case 'H':
-                *method = HEAD;
-                break;
-            case 'P':
-                if (*(cursor + 1) == 'O')
-                    *method = POST;
-                else
-                    *method = PUT;
-                break;
-            case 'D':
-                *method = DELETE;
-                break;
-            case 'C':
-                *method = CONNECT;
-                break;
-            case 'O':
-                *method = OPTIONS;
-                break;
-            case 'T':
-                *method = TRACE;
-                break;
-            default:
-                return HTTP_METHOD_PARSE_ERR;
-            }
-        }
-    if (*method < 1) // true if method is set to NONE -> 0 or ERROR -> -1
-        return HTTP_METHOD_PARSE_ERR;
 
-    while (*cursor != ' ') {
-        if (cursor == end_pointer)
-            return HTTP_METHOD_PARSED_AND_NOT_READ;
-        cursor++;
-    }
-    cursor++;
-    return HTTP_METHOD_PARSED_AND_READ;
+int method_parsing_for_GET(enum http_method_state *method_state_p, char **cursor) {
+    if (*method_state_p == METHOD_STATE_START && **cursor == 'G') {
+        *method_state_p = READ_G_EXPECTING_E_IN_GET;
+        (*cursor)++;
+        return 1;
+    } else if (*method_state_p >= READ_G_EXPECTING_E_IN_GET && *method_state_p <= READ_T_EXPECTING_SPACE_AFTER_GET)
+        return 1;
+    return 0;
 }
+
+int method_parsing_not_done(enum http_method_state method_state) {
+    return method_state != VALID_METHOD && method_state != INVALID_METHOD;
+}
+
+
+void parse_method_for_GET(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
+    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+        if (*method_state_p == READ_G_EXPECTING_E_IN_GET && *cursor == 'E') {
+            *method_state_p = READ_E_EXPECTING_T_IN_GET;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_E_EXPECTING_T_IN_GET && *cursor == 'T') {
+            *method_state_p = READ_T_EXPECTING_SPACE_AFTER_GET;
+            (*cursor)++;
+            continue;
+        } else if (*method_state_p == READ_T_EXPECTING_SPACE_AFTER_GET && *cursor == ' ') {
+            (*cursor)++;
+            *method_state_p = VALID_METHOD;
+            *http_method_p = GET;
+            return;
+        } else {
+            *method_state_p = INVALID_METHOD;
+            return;
+        }
+    }
+    
+}
+
+void parse_request_method(struct http_parser_state *parse_state, char **cursor, char *end, enum http_method *method) {
+    enum http_method_state *method_state_p = &(parse_state->req_line_state_machine.method_state);
+    enum http_method method;
+    
+    
+    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+        if (method_parsing_for_GET(method_state_p, cursor)) {
+            parse_method_for_GET(&method, method_state_p, cursor, end);
+        }
+    }
+    }
 
 int parse_uri(struct http_uri* uri, char *start_pointer, char *end_pointer) {
     struct key_value_list *query;
