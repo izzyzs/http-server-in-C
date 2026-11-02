@@ -1,12 +1,14 @@
 #ifndef HTTP_REQUEST_LINE
 #define HTTP_REQUEST_LINE
 
-enum version_status { VERSION_OK, VERSION_INVALID_SYNTAX };
+#include "uri_target.h"
+#include "key_value_list.h"
+
 struct http_version {
     int major;
     int minor;
-    enum version_status status;
 };
+
 struct http_uri {
     char *absolute_path;
     struct key_value_list *query_values;
@@ -19,6 +21,15 @@ struct http_request_line {
     struct http_uri uri;
     struct http_version version;
 };
+
+
+enum http_request_line_state { 
+    HTTP_REQUEST_LINE_START, 
+    HTTP_REQUEST_LINE_HANDLING_METHOD,
+    HTTP_REQUEST_LINE_HANDLING_URI_TARGET,
+    HTTP_REQUEST_LINE_HANLDING_VERSION
+};
+
 
 enum http_method_state {
         METHOD_STATE_START,
@@ -88,60 +99,55 @@ enum http_method_state {
         INVALID_METHOD
 };
 
-enum http_uri_state {
-    HTTP_URI_START
-};
 enum http_version_state {    
-    HTTP_VERSION_START
+    HTTP_VERSION_START,
 };
 
+struct http_field_lines_parser {};
 
-enum http_request_line_state { 
-    HTTP_REQUEST_LINE_START, 
-    HTTP_REQUEST_LINE_METHOD_DONE,
-    HTTP_REQUEST_LINE_URI_PATH_DONE,
-    HTTP_REQUEST_LINE_URI_QUERY_DONE,
-    HTTP_REQUEST_LINE_VERSION_DONE,
-    HTTP_REQUEST_LINE_METHOD_ERR, 
-    HTTP_REQUEST_LINE_URI_ERR, 
-    HTTP_REQUEST_LINE_VERSION_ERR
-};
-
-/**
- * struct http_request_line {
-    enum http_method method_state;
-    };
-    * 
-    */
-struct http_request_line_state_machine {
+struct http_req_line_parser {
     enum http_request_line_state self_state;
     enum http_method_state method_state;
-    enum http_uri_state uri_state;
+    struct http_uri_target_parser target_parser;
     enum http_version_state version_state;
+    struct http_field_lines_parser field_lines_parser;
 };
 
-struct http_parser_state {
-    struct http_request_line_state_machine req_line_state_machine;
-};
 int http_req_line_parse_is_err(enum http_request_line_state);
 
 
-// enum http_uri_state {
+// enum http_uri_target_state {
 //     HTTP_METHOD_PARSE_ERR=-1, HTTP_METHOD_START, HTTP_METHOD_PARSED_AND_NOT_READ, HTTP_METHOD_PARSED_AND_READ
 // };
 
 
 enum http_request_line_state parse_request_line(struct http_request_line *request_line, enum http_request_line_state req_line_state, char **cursor_p, char *end_p);
-char *req_line_err_to_str(enum http_request_line_status status);
 
-void parse_request_method(struct http_parser_state *parse_state, char **cursor, char *end, enum http_method *method);
-int method_parsing_for_GET(enum http_method_state *method_state_p, char **cursor);
+void parse_request_method(struct http_req_line_parser *req_line_parser, char **cursor, char *end, enum http_method *method);
 int method_parsing_not_done(enum http_method_state method_state);
+int method_parsing_for_GET(enum http_method_state *method_state_p, char **cursor);
 void parse_method_for_GET(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_HEAD(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_HEAD(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_PUT_or_POST_or_PATCH(enum http_method_state *method_state_p, char **cursor);
+int method_parsing_for_PUT(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_PUT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_POST(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_POST(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_PATCH(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_PATCH(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_DELETE(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_DELETE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_CONNECT(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_CONNECT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_OPTIONS(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_OPTIONS(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
+int method_parsing_for_TRACE(enum http_method_state *method_state_p, char **cursor);
+void parse_method_for_TRACE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end);
 
 int parse_uri(struct http_uri* uri, char *start_pointer);
 struct key_value_list *parse_uri_query(char *start_pointer);
-int parse_http_version(struct http_version *version, char *start_pointer);
+int parse_http_version(struct http_version *version, char *start_pointer, struct http_req_line_parser *req_line_parser);
 char *http_method_to_str(enum http_method m);
 void print_uri(struct http_uri u);
 void print_http_version(struct http_version v);
