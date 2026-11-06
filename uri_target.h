@@ -4,6 +4,7 @@
 #include "key_value_list.h"
 
 enum uri_target_form {
+    URI_FORM_NOT_SET,
     ORIGIN_FORM,
     ABSOLUTE_FORM,
     AUTHORITY_FORM,
@@ -14,7 +15,7 @@ enum http_uri_scheme { HTTP, HTTPS };
 
 struct uri_origin_form {
     char *absolute_path;
-    struct key_value_list *query;
+    char *query;
 };
 
 struct uri_absolute_form {
@@ -58,10 +59,11 @@ enum http_uri_target_state {
     UT_START,
     UT_PARSE_FOR_ASTERISK_LOOK_FOR_SPACE,
 
-    UT_PARSE_FOR_ORIGIN_ABS_PATH,
+    UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL,
+    UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_1,
+    UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_2,
     UT_PARSE_FOR_ORIGIN_QUERY,
     
-
     VALID_URI_TARGET,
     INVALID_URI_TARGET
 };
