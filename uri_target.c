@@ -34,8 +34,17 @@ int main() {
 }
 
 
-int parsing_for_authority_form(struct http_uri_target_parser *uri_parser_p, char **cursor);
-void parse_for_authority(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end);    
+int parsing_for_authority_form(struct http_uri_target_parser *uri_parser_p, char **cursor) {
+    // I was thinking of handling all the possible cases required to afirm absolute form, then work with authority from there
+    // started writing the states for HTTP/HTTPS in uri_target.h
+    // we can also parse and keep count, if u pass 4 letters that equal http or 5 letters that equal https and you don't find a semicolon followed with numbers it can't be authority afterward, then it can't be 
+    // basically for authority parse for everything up until a colon, and if only numbers that don't fall in the allowable range for ports don't come after the colon then sayonara, it isn't authority
+    // so maybe a parsing for authority or absolute function might be more proper, and we parse. based on what isn't allowed vs what is.
+}
+
+void parse_for_authority(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end) {
+
+}
 
 // the uri strings were produced by ChatGPT to help with testing
 void test_origin_parser() {

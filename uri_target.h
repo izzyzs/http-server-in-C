@@ -63,6 +63,16 @@ enum http_uri_target_state {
     UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_1,
     UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_2,
     UT_PARSE_FOR_ORIGIN_QUERY,
+
+
+    // I was thinking of handling all the possible cases required to afirm absolute form, then work with authority from there
+    UT_PARSE_FOR_H_IN_ABS_FORM,
+    UT_PARSE_FOR_FIRST_T_IN_ABS_FORM,
+    UT_PARSE_FOR_SECOND_T_IN_ABS_FORM,
+    UT_PARSE_FOR_P_IN_ABS_FORM,
+    UT_PARSE_FOR_SPACE_IN_ABS_FORM,
+    
+
     
     VALID_URI_TARGET,
     INVALID_URI_TARGET
