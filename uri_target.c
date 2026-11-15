@@ -367,9 +367,10 @@ int parsing_for_origin_form(struct http_uri_target_parser *uri_parser_p, char **
 void parse_for_origin(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end) {
     char *val;
     init_for_origin_target(uri_target_p);
-    
+    int still_parsing;
+
     // int run = 0;
-    while (*cursor <= end) {
+    while ((still_parsing = *cursor <= end)) {
         // printf("run #%d\tcursor: %c\n", ++run, **cursor);
         // printf("parser state: %s\n", parser_state_str(*uri_parser_p));
         if (**cursor == '#') {
