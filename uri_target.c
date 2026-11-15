@@ -371,8 +371,6 @@ void parse_for_origin(struct request_line_uri_target *uri_target_p, struct http_
 
     // int run = 0;
     while ((still_parsing = *cursor <= end)) {
-        // printf("run #%d\tcursor: %c\n", ++run, **cursor);
-        // printf("parser state: %s\n", parser_state_str(*uri_parser_p));
         if (**cursor == '#') {
             uri_parser_p->state = INVALID_URI_TARGET;
             uri_target_p->form = URI_FORM_NOT_SET;
