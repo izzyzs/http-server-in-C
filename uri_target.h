@@ -11,7 +11,7 @@ enum uri_target_form {
     ASTERISK_FORM
 };
 
-enum http_uri_scheme { HTTP, HTTPS };
+enum http_uri_scheme { SCHEME_NONE=-1, HTTP, HTTPS };
 
 struct uri_origin_form {
     char *absolute_path;
@@ -66,21 +66,42 @@ enum http_uri_target_state {
 
 
     // I was thinking of handling all the possible cases required to afirm absolute form, then work with authority from there
-    UT_PARSE_FOR_H_IN_ABS_FORM,
-    UT_PARSE_FOR_FIRST_T_IN_ABS_FORM,
-    UT_PARSE_FOR_SECOND_T_IN_ABS_FORM,
-    UT_PARSE_FOR_P_IN_ABS_FORM,
-    UT_PARSE_FOR_SPACE_IN_ABS_FORM,
-    
+    // UT_PARSE_FOR_H_IN_SCHEME_AF,
+    UT_PARSE_FOR_FIRST_T_IN_SCHEME_ABSF,
+    UT_PARSE_FOR_SECOND_T_IN_SCHEME_ABSF,
+    UT_PARSE_FOR_P_IN_SCHEME_ABSF,
+    UT_PARSE_FOR_S_OR_COLON_IN_SCHEME_ABSF,
+    UT_PARSE_FOR_COLON_AFTER_S_IN_SCHEME_ABSF,
+    UT_PARSE_FORWARD_SLASH_1_IN_HIER_PART_ABSF,
+    UT_PARSE_FORWARD_SLASH_2_IN_HIER_PART_ABSF,
+
+    UT_PARSE_AUTHORITY_HOST_ABSF,
+    UT_PARSE_AUTHORITY_PORT_ABSF,
 
     
     VALID_URI_TARGET,
     INVALID_URI_TARGET
 };
 
+enum abs_form_scheme_status {
+    ABSF_SCHEME_INCOMPLETE,
+    ABSF_SCHEME_NOT_FOUND,
+    ABSF_SCHEME_FOUND,
+};
+
 struct http_uri_target_parser {
     enum http_uri_target_state state;
     char *start_p;
+    enum http_uri_scheme scheme_guess;
 };
+
+struct http_uri_target_parser init_http_uri_target_parser() {
+    struct http_uri_target_parser parser = {
+        .state = UT_START,
+        .start_p = NULL,
+        .scheme_guess = SCHEME_NONE
+    };
+    return parser;
+}
 
 #endif

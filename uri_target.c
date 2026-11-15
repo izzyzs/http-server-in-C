@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include "uri_target.h"
 #include "key_value_list.h"
 #include "serverror.h"
 
 
 void handle_test_list(const char **uris, size_t list_len);
-char *parser_state(struct http_uri_target_parser parser);
+char *parser_state_str(struct http_uri_target_parser parser);
 char *cpy_str(char *start_p, char *end_p);
 
 int is_alpha(char c);
@@ -26,20 +27,78 @@ void parse_for_authority(struct request_line_uri_target *uri_target_p, struct ht
 void test_origin_parser();
 
 void print_uri(struct request_line_uri_target *uri_target);
+enum abs_form_scheme_status try_for_scheme(struct http_uri_target_parser *uri_parser_p, char **cursor);
 
 int main() {
-    
+    test_origin_parser();
     
     return 0;
 }
 
+enum abs_form_scheme_status try_for_scheme(struct http_uri_target_parser *uri_parser_p, char **cursor) {
+    if (uri_parser_p->state == UT_START) uri_parser_p->start_p = *cursor;
+    char lowered = tolower(**cursor);
+    if (lowered == 'h' && uri_parser_p->state == UT_START) {
+        uri_parser_p->state = UT_PARSE_FOR_FIRST_T_IN_SCHEME_ABSF;
+        (*cursor)++;
+        return ABSF_SCHEME_INCOMPLETE;
+    } else if (lowered == 't' && uri_parser_p->state == UT_PARSE_FOR_FIRST_T_IN_SCHEME_ABSF) {
+        uri_parser_p->state = UT_PARSE_FOR_SECOND_T_IN_SCHEME_ABSF;
+        (*cursor)++;
+        return ABSF_SCHEME_INCOMPLETE;
+    } else if (lowered == 't' && uri_parser_p->state == UT_PARSE_FOR_SECOND_T_IN_SCHEME_ABSF) {
+        uri_parser_p->state = UT_PARSE_FOR_P_IN_SCHEME_ABSF;
+        (*cursor)++;
+        return ABSF_SCHEME_INCOMPLETE;
+    } else if (lowered == 'p' && uri_parser_p->state == UT_PARSE_FOR_P_IN_SCHEME_ABSF) {
+        uri_parser_p->state = UT_PARSE_FOR_S_OR_COLON_IN_SCHEME_ABSF;
+        (*cursor)++;
+        return ABSF_SCHEME_INCOMPLETE;
+    } else if (uri_parser_p->state == UT_PARSE_FOR_S_OR_COLON_IN_SCHEME_ABSF) {
+        if (lowered == 's') {
+            uri_parser_p->state = UT_PARSE_FOR_COLON_AFTER_S_IN_SCHEME_ABSF;
+            (*cursor)++;
+            return ABSF_SCHEME_INCOMPLETE;
+        } else if (**cursor == ':') {
+            uri_parser_p->state = UT_PARSE_FORWARD_SLASH_1_IN_HIER_PART_ABSF;
+            uri_parser_p->scheme_guess = HTTP;
+            (*cursor)++;
+            return ABSF_SCHEME_FOUND;
+        }
+    } else if (uri_parser_p->state == UT_PARSE_FOR_COLON_AFTER_S_IN_SCHEME_ABSF && **cursor == ':') {
+        uri_parser_p->state = UT_PARSE_FORWARD_SLASH_1_IN_HIER_PART_ABSF;
+        uri_parser_p->scheme_guess = HTTPS;
+        (*cursor)++;
+        return ABSF_SCHEME_FOUND;
+    }
+    return ABSF_SCHEME_NOT_FOUND;
+}
 
-int parsing_for_authority_form(struct http_uri_target_parser *uri_parser_p, char **cursor) {
-    // I was thinking of handling all the possible cases required to afirm absolute form, then work with authority from there
+int parsing_for_absolute_or_authority(struct http_uri_target_parser *uri_parser_p, char **cursor, char *end) {
+    // I was thinking of handling all the possible cases required to affirm absolute form, then work with authority from there
     // started writing the states for HTTP/HTTPS in uri_target.h
     // we can also parse and keep count, if u pass 4 letters that equal http or 5 letters that equal https and you don't find a semicolon followed with numbers it can't be authority afterward, then it can't be 
     // basically for authority parse for everything up until a colon, and if only numbers that don't fall in the allowable range for ports don't come after the colon then sayonara, it isn't authority
     // so maybe a parsing for authority or absolute function might be more proper, and we parse. based on what isn't allowed vs what is.
+    enum abs_form_scheme_status scheme_status = ABSF_SCHEME_INCOMPLETE;
+    
+    do {
+        scheme_status = try_for_scheme(uri_parser_p, cursor);
+    } while (scheme_status == ABSF_SCHEME_INCOMPLETE);
+    
+    if (scheme_status == ABSF_SCHEME_FOUND) {
+        if (uri_parser_p->state == UT_PARSE_FORWARD_SLASH_1_IN_HIER_PART_ABSF && **cursor == '/') {
+           uri_parser_p->state = UT_PARSE_FORWARD_SLASH_2_IN_HIER_PART_ABSF;
+           (*cursor)++;
+           return 1;
+        } else if (uri_parser_p->state == UT_PARSE_FORWARD_SLASH_2_IN_HIER_PART_ABSF && **cursor == '/') {
+            uri_parser_p->state = UT_PARSE_AUTHORITY_HOST_ABSF;
+            uri_parser_p->start_p = *cursor;
+            (*cursor)++;
+           return 1;
+       }
+    }
+    return 0;
 }
 
 void parse_for_authority(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end) {
@@ -49,68 +108,50 @@ void parse_for_authority(struct request_line_uri_target *uri_target_p, struct ht
 // the uri strings were produced by ChatGPT to help with testing
 void test_origin_parser() {
 
-    const char *valid_uris[] = {
-        // Basic paths
-        "/ HTTP/1.1",
-        "/index.html HTTP/1.1",
-        "/hello HTTP/1.1",
-        "/users/123 HTTP/1.1",
-        "/api/v1/users HTTP/1.1",
+const char *valid_uris[] = {
+    // Authority-form
+    // "example.com:443  ",
+    // "localhost:8080  ",
+    // "127.0.0.1:3000  ",
+    // "api.example.com:8443  ",
+    // "[::1]:8080  ",
+    // "[2001:db8::1]:443  ",
 
-        // Path structure
-        "// HTTP/1.1",
-        "/a//b HTTP/1.1",
-        "/a/b/ HTTP/1.1",
-        "/./ HTTP/1.1",
-        "/../ HTTP/1.1",
-        "/a/../b HTTP/1.1",
+    // Absolute-form
+    // "http://example.com  ",
+    // "http://example.com/  ",
+    // "https://example.com/index.html  ",
+    // "http://localhost:8080/api/users  ",
+    // "http://example.com:3000/test  ",
+    // "http://example.com/search?q=hello  ",
+    // "https://example.com/a/b/c?x=1&y=2  ",
+    // "http://127.0.0.1:8080/  ",
+    // "http://[::1]:8080/test  ",
+    // "HTTP://EXAMPLE.COM/path  ",
 
-        // Unreserved characters
-        "/abc-._~123 HTTP/1.1",
-        "/hello_world HTTP/1.1",
-        "/user~name HTTP/1.1",
+    // Asterisk-form
+    // "*  ",
 
-        // Sub-delimiters
-        "/hello!world HTTP/1.1",
-        "/price$100 HTTP/1.1",
-        "/a&b HTTP/1.1",
-        "/it's HTTP/1.1",
-        "/foo(bar) HTTP/1.1",
-        "/a*b+c,d HTTP/1.1",
-        "/a;b=c HTTP/1.1",
+    // Origin-form
+    "/",
+    "/index.html",
+    "/api/users",
+    "/api/users/123",
+    "/search?q=hello",
+    "/?key=value",
+    "/path/to/resource?x=1&y=2",
+    "/file%20name.txt",
+    "/a/b/../c",
+    "//double/slash",
+    "/path?",
+    "/path?redirect=http://example.com"
+};
 
-        // Other permitted path characters
-        "/user:123 HTTP/1.1",
-        "/user@domain HTTP/1.1",
-        "/a:b@c HTTP/1.1",
-
-        // Percent-encoding
-        "/hello%20world HTTP/1.1",
-        "/%2F HTTP/1.1",
-        "/%2f HTTP/1.1",
-        "/%41%42%43 HTTP/1.1",
-        "/a%3Ab HTTP/1.1",
-        "/%25 HTTP/1.1",
-        "/%00 HTTP/1.1",
-
-        // Queries
-        "/?x=1 HTTP/1.1",
-        "/?x=1&y=2 HTTP/1.1",
-        "/search?q=hello%20world HTTP/1.1",
-        "/path? HTTP/1.1",
-        "/path?foo/bar HTTP/1.1",
-        "/path?foo?bar HTTP/1.1",
-        "/path?x=%26%3D HTTP/1.1",
-        "/path?redirect=/a/b?x=1 HTTP/1.1",
-
-        // Complex combinations
-        "/api/v1/users/123?active=true&sort=asc HTTP/1.1",
-        "/a%2Fb/c%20d?x=%25&y=hello HTTP/1.1",
-        "/foo;bar=baz?x=a+b&y=c%2Fd HTTP/1.1"
-    };
+// const size_t valid_uris_count =
+//     sizeof(valid_uris) / sizeof(valid_uris[0]);
 
     const char *invalid_uris[] = {
-    //     "hello HTTP/1.1",
+    //     "hello HTTP/1.1. ",
     //     "index.html HTTP/1.1",
     //     "?x=1 HTTP/1.1",
 
@@ -140,15 +181,15 @@ void test_origin_parser() {
         // " HTTP/1.1"
     };
     size_t valid_len = sizeof(valid_uris)/sizeof(valid_uris[0]);
-    size_t invalid_len = sizeof(invalid_uris)/sizeof(invalid_uris[0]);
+    // size_t invalid_len = sizeof(invalid_uris)/sizeof(invalid_uris[0]);
     printf("::::::::::\n");
     printf("VALID URIS\n");
     printf("::::::::::\n");
     handle_test_list(valid_uris, valid_len);
-    printf("::::::::::::\n");
-    printf("INVALID URIS\n");
-    printf("::::::::::::\n");;
-    handle_test_list(invalid_uris, invalid_len);
+    // printf("::::::::::::\n");
+    // printf("INVALID URIS\n");
+    // printf("::::::::::::\n");;
+    // handle_test_list(invalid_uris, invalid_len);
 }
 
 void handle_test_list(const char **uris, size_t list_len) {
@@ -163,6 +204,7 @@ void handle_test_list(const char **uris, size_t list_len) {
         size_t end_i = strlen(buffer) - 1;
         char *end = buffer + end_i;
         char **cursor = &buffer;
+        int parsing_for_absolute;
 
         uri_parser_p->state = UT_START;
         if (parsing_for_asterisk_form(uri_parser_p, cursor)) {
@@ -173,15 +215,26 @@ void handle_test_list(const char **uris, size_t list_len) {
             (*cursor)++;
             
         } else if (parsing_for_origin_form(uri_parser_p, cursor)) {
+            printf("parsing for origin\n");
             parse_for_origin(reql_uri_target_p, uri_parser_p, cursor, end);
-        }
+        } 
+        // else {
+        //     parsing_for_absolute = parsing_for_absolute_or_authority(uri_parser_p, cursor, end);
+        //     if (parsing_for_absolute) {
+        //         // parse_For_absolute()
+        //         printf("parsing for absolute\n");
+        //     } else {
+        //         // parse_for_authority()
+        //         printf("parsing for authority\n");
+        //     }
+        // }
 
         print_uri(reql_uri_target_p);
-        printf("DEBUG: parser state %s\n\n", parser_state(*uri_parser_p));
+        printf("DEBUG: parser state -> %s\n\n", parser_state_str(*uri_parser_p));
     }
 }
 
-char *parser_state(struct http_uri_target_parser parser) {
+char *parser_state_str(struct http_uri_target_parser parser) {
     switch (parser.state) {
         case UT_START:
             return "UT_START";
@@ -195,6 +248,24 @@ char *parser_state(struct http_uri_target_parser parser) {
             return "UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_2";
         case UT_PARSE_FOR_ORIGIN_QUERY:
             return "UT_PARSE_FOR_ORIGIN_QUERY";
+        case UT_PARSE_FOR_FIRST_T_IN_SCHEME_ABSF:
+            return "UT_PARSE_FOR_FIRST_T_IN_SCHEME_ABSF";
+        case UT_PARSE_FOR_SECOND_T_IN_SCHEME_ABSF:
+            return "UT_PARSE_FOR_SECOND_T_IN_SCHEME_ABSF";
+        case UT_PARSE_FOR_P_IN_SCHEME_ABSF:
+            return "UT_PARSE_FOR_P_IN_SCHEME_ABSF";
+        case UT_PARSE_FOR_S_OR_COLON_IN_SCHEME_ABSF:
+            return "UT_PARSE_FOR_S_OR_COLON_IN_SCHEME_ABSF";
+        case UT_PARSE_FOR_COLON_AFTER_S_IN_SCHEME_ABSF:
+            return "UT_PARSE_FOR_COLON_AFTER_S_IN_SCHEME_ABSF";
+        case UT_PARSE_FORWARD_SLASH_1_IN_HIER_PART_ABSF:
+            return "UT_PARSE_FORWARD_SLASH_1_IN_HIER_PART_ABSF";
+        case UT_PARSE_FORWARD_SLASH_2_IN_HIER_PART_ABSF:
+            return "UT_PARSE_FORWARD_SLASH_2_IN_HIER_PART_ABSF";
+        case UT_PARSE_AUTHORITY_HOST_ABSF:
+            return "UT_PARSE_AUTHORITY_HOST_ABSF";
+        case UT_PARSE_AUTHORITY_PORT_ABSF:
+            return "UT_PARSE_AUTHORITY_PORT_ABSF";
         case VALID_URI_TARGET:
             return "VALID_URI_TARGET";
         case INVALID_URI_TARGET:
@@ -226,7 +297,7 @@ void print_uri(struct request_line_uri_target *uri_target) {
 
         return;
         default:
-            printf("Not printable");
+            printf("URI Not printable\n");
         return;
     }
 }
@@ -297,7 +368,10 @@ void parse_for_origin(struct request_line_uri_target *uri_target_p, struct http_
     char *val;
     init_for_origin_target(uri_target_p);
     
-    while (*cursor != end) {
+    int run = 0;
+    while (*cursor >= end) {
+        // printf("run #%d\tcursor: %c\n", ++run, **cursor);
+        // printf("parser state: %s\n", parser_state_str(*uri_parser_p));
         if (**cursor == '#') {
             uri_parser_p->state = INVALID_URI_TARGET;
             uri_target_p->form = URI_FORM_NOT_SET;
@@ -317,6 +391,7 @@ void parse_for_origin(struct request_line_uri_target *uri_target_p, struct http_
                     // handle no query
                     if (uri_parser_p->state == UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL) {
                         val = cpy_str(uri_parser_p->start_p, *cursor);
+                        // printf("cursor == space and uri_parser_p->state == UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL");
                         if (val == NULL) {
                             print_server_error("malloc error in cpy_str");
                             uri_parser_p->state = INVALID_URI_TARGET;
