@@ -368,8 +368,8 @@ void parse_for_origin(struct request_line_uri_target *uri_target_p, struct http_
     char *val;
     init_for_origin_target(uri_target_p);
     
-    int run = 0;
-    while (*cursor >= end) {
+    // int run = 0;
+    while (*cursor <= end) {
         // printf("run #%d\tcursor: %c\n", ++run, **cursor);
         // printf("parser state: %s\n", parser_state_str(*uri_parser_p));
         if (**cursor == '#') {
