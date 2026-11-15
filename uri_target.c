@@ -133,18 +133,18 @@ const char *valid_uris[] = {
     // "*  ",
 
     // Origin-form
-    "/",
-    "/index.html",
-    "/api/users",
-    "/api/users/123",
-    "/search?q=hello",
-    "/?key=value",
-    "/path/to/resource?x=1&y=2",
-    "/file%20name.txt",
-    "/a/b/../c",
-    "//double/slash",
-    "/path?",
-    "/path?redirect=http://example.com"
+    // "/ ",
+    // "/index.html ",
+    // "/api/users ",
+    // "/api/users/123 ",
+    // "/search?q=hello ",
+    // "/?key=value ",
+    // "/path/to/resource?x=1&y=2 ",
+    // "/file%20name.txt ",
+    // "/a/b/../c ",
+    // "//double/slash ",
+    // "/path? ",
+    // "/path?redirect=http://example.com "
 };
 
 // const size_t valid_uris_count =

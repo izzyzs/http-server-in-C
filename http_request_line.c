@@ -182,7 +182,7 @@ int method_parsing_not_done(enum http_method_state method_state) {
 
 
 void parse_method_for_GET(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_G_EXPECTING_E_IN_GET && *cursor == 'E') {
             *method_state_p = READ_E_EXPECTING_T_IN_GET;
             (*cursor)++;
@@ -204,7 +204,7 @@ void parse_method_for_GET(enum http_method *http_method_p, enum http_method_stat
 }
 
 void parse_method_for_HEAD(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_H_EXPECTING_E_IN_HEAD && *cursor == 'E') {
             *method_state_p = READ_E_EXPECTING_A_IN_HEAD;
             (*cursor)++;
@@ -230,7 +230,7 @@ void parse_method_for_HEAD(enum http_method *http_method_p, enum http_method_sta
 }
 
 void parse_method_for_PUT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_U_EXPECTING_T_IN_PUT && *cursor == 'T') {
             *method_state_p = READ_T_EXPECTING_SPACE_AFTER_PUT;
             (*cursor)++;
@@ -248,7 +248,7 @@ void parse_method_for_PUT(enum http_method *http_method_p, enum http_method_stat
 }
 
 void parse_method_for_POST(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_O_EXPECTING_S_IN_POST && *cursor == 'S') {
             *method_state_p = READ_S_EXPECTING_T_IN_POST;
             (*cursor)++;
@@ -270,7 +270,7 @@ void parse_method_for_POST(enum http_method *http_method_p, enum http_method_sta
 }
 
 void parse_method_for_PATCH(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_A_EXPECTING_T_IN_PATCH && *cursor == 'T') {
             *method_state_p = READ_T_EXPECTING_C_IN_PATCH;
             (*cursor)++;
@@ -297,7 +297,7 @@ void parse_method_for_PATCH(enum http_method *http_method_p, enum http_method_st
 }
 
 void parse_method_for_DELETE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_D_EXPECTING_FIRST_E_IN_DELETE && *cursor == 'E') {
             *method_state_p = READ_FIRST_E_EXPECTING_L_IN_DELETE;
             (*cursor)++;
@@ -333,7 +333,7 @@ void parse_method_for_DELETE(enum http_method *http_method_p, enum http_method_s
     }
 }
 void parse_method_for_CONNECT(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_FIRST_C_EXPECTING_O_IN_CONNECT && *cursor == 'O') {
             *method_state_p = READ_O_EXPECTING_FIRST_N_IN_CONNECT;
             (*cursor)++;
@@ -372,7 +372,7 @@ void parse_method_for_CONNECT(enum http_method *http_method_p, enum http_method_
     }
 }
 void parse_method_for_OPTIONS(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_FIRST_O_EXPECTING_P_IN_OPTIONS && *cursor == 'P') {
             *method_state_p = READ_P_EXPECTING_T_IN_OPTIONS;
             (*cursor)++;
@@ -411,7 +411,7 @@ void parse_method_for_OPTIONS(enum http_method *http_method_p, enum http_method_
     }
 }
 void parse_method_for_TRACE(enum http_method *http_method_p, enum http_method_state *method_state_p, char **cursor, char *end) {
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (*method_state_p == READ_T_EXPECTING_R_IN_TRACE && *cursor == 'R') {
             *method_state_p = READ_R_EXPECTING_A_IN_TRACE;
             (*cursor)++;
@@ -447,7 +447,7 @@ void parse_request_method(struct http_req_line_parser *req_line_parser, char **c
     enum http_method method;
     
     
-    while (*cursor != end && method_parsing_not_done(*method_state_p)) {
+    while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
         if (method_parsing_for_GET(method_state_p, cursor)) {
             parse_method_for_GET(&method, method_state_p, cursor, end);
         } else if (method_parsing_for_HEAD(method_state_p, cursor)) {
