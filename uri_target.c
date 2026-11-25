@@ -11,26 +11,19 @@ void handle_test_list(const char **uris, size_t list_len);
 char *parser_state_str(struct http_uri_target_parser parser);
 char *cpy_str(char *start_p, char *end_p);
 
-int is_alpha(char c);
-int is_digit(char c);
-int is_unreserved_char(char c);
-int is_hex_digit(char c);
-int is_subdelimiter(char c);
-int is_pchar(char c);
-
-int parsing_for_asterisk_form(struct http_uri_target_parser *uri_parser_p, char **cursor);
-int parsing_for_origin_form(struct http_uri_target_parser *uri_parser_p, char **cursor);
-void init_for_origin_target(struct request_line_uri_target *uri_target_p);
-void parse_for_origin(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end);    
+void init_target_struct_for_absolute_target(struct request_line_uri_target *uri_target_p);
 int parsing_for_authority_form(struct http_uri_target_parser *uri_parser_p, char **cursor);
-void parse_for_authority(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end);    
-void test_origin_parser();
+
+void parse_for_absolute(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end);
+void uri_parse_test();
 
 void print_uri(struct request_line_uri_target *uri_target);
 enum abs_form_scheme_status try_for_scheme(struct http_uri_target_parser *uri_parser_p, char **cursor);
 
+void clear_target_struct(struct request_line_uri_target *uri_target_p);
+
 int main() {
-    test_origin_parser();
+    uri_parse_test();
     
     return 0;
 }
@@ -80,8 +73,13 @@ int parsing_for_absolute_or_authority(struct http_uri_target_parser *uri_parser_
     // we can also parse and keep count, if u pass 4 letters that equal http or 5 letters that equal https and you don't find a semicolon followed with numbers it can't be authority afterward, then it can't be 
     // basically for authority parse for everything up until a colon, and if only numbers that don't fall in the allowable range for ports don't come after the colon then sayonara, it isn't authority
     // so maybe a parsing for authority or absolute function might be more proper, and we parse. based on what isn't allowed vs what is.
+
+    // ^ i was incorrect, i can distinguish between absolute and authority. This is better named parsing_for_authority, 
     enum abs_form_scheme_status scheme_status = ABSF_SCHEME_INCOMPLETE;
     
+    // incase it isn't a valid start
+    uri_parser_p->start_p = cursor;
+
     do {
         scheme_status = try_for_scheme(uri_parser_p, cursor);
     } while (scheme_status == ABSF_SCHEME_INCOMPLETE);
@@ -92,7 +90,7 @@ int parsing_for_absolute_or_authority(struct http_uri_target_parser *uri_parser_
            (*cursor)++;
            return 1;
         } else if (uri_parser_p->state == UT_PARSE_FORWARD_SLASH_2_IN_HIER_PART_ABSF && **cursor == '/') {
-            uri_parser_p->state = UT_PARSE_AUTHORITY_HOST_ABSF;
+            uri_parser_p->state = UT_PARSE_HIER_AUTHORITY_PORT_ABSF;
             uri_parser_p->start_p = *cursor;
             (*cursor)++;
            return 1;
@@ -101,12 +99,32 @@ int parsing_for_absolute_or_authority(struct http_uri_target_parser *uri_parser_
     return 0;
 }
 
-void parse_for_authority(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end) {
 
+void parse_for_absolute(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end) {
+    char *val;
+    init_target_struct_for_absolute_target(uri_target_p);
+    // var made for inspecting value with debugger
+    int still_parsing;
+
+    while ((still_parsing = (*cursor <= end)) == 1) {
+        if (uri_parser_p->state == UT_PARSE_FORWARD_SLASH_2_IN_HIER_PART_ABSF) {
+            if (**cursor == '/') {
+                uri_parser_p->state = UT_PARSE_HIER_AUTHORITY_HOST_ABSF;
+                uri_parser_p->start_p = *cursor;
+                (*cursor)++;
+                continue;
+            } else {
+                uri_parser_p->state = INVALID_URI_TARGET;
+                uri_target_p->form = URI_FORM_NOT_SET;
+                clear_target_struct(uri_target_p);
+            }
+        }
+        if (uri_parser_p->state == UT_PARSE_HIER_AUTHORITY_PORT_ABSF) {}
+    }
 }
 
 // the uri strings were produced by ChatGPT to help with testing
-void test_origin_parser() {
+void uri_parse_test() {
 
 const char *valid_uris[] = {
     // Authority-form
@@ -118,19 +136,19 @@ const char *valid_uris[] = {
     // "[2001:db8::1]:443  ",
 
     // Absolute-form
-    // "http://example.com  ",
-    // "http://example.com/  ",
-    // "https://example.com/index.html  ",
-    // "http://localhost:8080/api/users  ",
-    // "http://example.com:3000/test  ",
-    // "http://example.com/search?q=hello  ",
-    // "https://example.com/a/b/c?x=1&y=2  ",
-    // "http://127.0.0.1:8080/  ",
-    // "http://[::1]:8080/test  ",
-    // "HTTP://EXAMPLE.COM/path  ",
+    "http://example.com ",
+    "http://example.com/ ",
+    "https://example.com/index.html ",
+    "http://localhost:8080/api/users ",
+    "http://example.com:3000/test ",
+    "http://example.com/search?q=hello ",
+    "https://example.com/a/b/c?x=1&y=2 ",
+    "http://127.0.0.1:8080/ ",
+    "http://[::1]:8080/test ",
+    "HTTP://EXAMPLE.COM/path ",
 
     // Asterisk-form
-    // "*  ",
+    "* ",
 
     // Origin-form
     // "/ ",
@@ -151,16 +169,41 @@ const char *valid_uris[] = {
 //     sizeof(valid_uris) / sizeof(valid_uris[0]);
 
     const char *invalid_uris[] = {
+        "htp://example.com",
+        "htttp://example.com",
+        "hhttp://example.com",
+        "htt://example.com",
+        "htps://example.com",
+        "httpss://example.com",
+        "httpx://example.com",
+        "http1://example.com",
+        "http+://example.com",
+        "http-://example.com",
+        "http.://example.com",
+        "ht_tp://example.com",
+        "://example.com",
+        ":http://example.com",
+        "http//example.com",
+        "http:/example.com",
+        "http:example.com",
+        "http:://example.com",
+        "http!://example.com",
+        "http~://example.com",
+        "http[://example.com",
+        "http]://example.com",
+        "http{://example.com",
+        "http}://example.com"
+        
     //     "hello HTTP/1.1. ",
     //     "index.html HTTP/1.1",
     //     "?x=1 HTTP/1.1",
 
         // Invalid percent-encoding
-        "/hello% HTTP/1.1",
-        "/hello%2 HTTP/1.1",
-        "/hello%GG HTTP/1.1",
-        "/hello%2G HTTP/1.1",
-        "/hello%%20 HTTP/1.1",
+        // "/hello% HTTP/1.1",
+        // "/hello%2 HTTP/1.1",
+        // "/hello%GG HTTP/1.1",
+        // "/hello%2G HTTP/1.1",
+        // "/hello%%20 HTTP/1.1",
 
         // Forbidden characters
         // "/hello<world HTTP/1.1",
@@ -181,20 +224,20 @@ const char *valid_uris[] = {
         // " HTTP/1.1"
     };
     size_t valid_len = sizeof(valid_uris)/sizeof(valid_uris[0]);
-    // size_t invalid_len = sizeof(invalid_uris)/sizeof(invalid_uris[0]);
+    size_t invalid_len = sizeof(invalid_uris)/sizeof(invalid_uris[0]);
     printf("::::::::::\n");
     printf("VALID URIS\n");
     printf("::::::::::\n");
     handle_test_list(valid_uris, valid_len);
-    // printf("::::::::::::\n");
-    // printf("INVALID URIS\n");
-    // printf("::::::::::::\n");;
-    // handle_test_list(invalid_uris, invalid_len);
+    printf("::::::::::::\n");
+    printf("INVALID URIS\n");
+    printf("::::::::::::\n");;
+    handle_test_list(invalid_uris, invalid_len);
 }
 
 void handle_test_list(const char **uris, size_t list_len) {
     for (int i = 0; i < list_len; i++) {
-        struct http_uri_target_parser uri_target_parser;
+        struct http_uri_target_parser uri_target_parser = init_http_uri_target_parser();
         struct request_line_uri_target reql_uri_target;
         struct http_uri_target_parser *uri_parser_p = &uri_target_parser;
         struct request_line_uri_target *reql_uri_target_p = &reql_uri_target;
@@ -218,16 +261,16 @@ void handle_test_list(const char **uris, size_t list_len) {
             printf("parsing for origin\n");
             parse_for_origin(reql_uri_target_p, uri_parser_p, cursor, end);
         } 
-        // else {
-        //     parsing_for_absolute = parsing_for_absolute_or_authority(uri_parser_p, cursor, end);
-        //     if (parsing_for_absolute) {
-        //         // parse_For_absolute()
-        //         printf("parsing for absolute\n");
-        //     } else {
-        //         // parse_for_authority()
-        //         printf("parsing for authority\n");
-        //     }
-        // }
+        else {
+            parsing_for_absolute = parsing_for_absolute_or_authority(uri_parser_p, cursor, end);
+            if (parsing_for_absolute) {
+                printf("parsing for absolute\n");
+                parse_for_absolute(reql_uri_target_p, uri_parser_p, cursor, end);
+                printf("cursor: %s\n", *cursor);
+            } else {
+                printf("invalid for absolute\n");
+            }
+        }
 
         print_uri(reql_uri_target_p);
         printf("DEBUG: parser state -> %s\n\n", parser_state_str(*uri_parser_p));
@@ -313,10 +356,25 @@ char *cpy_str(char *start_p, char *end_p) {
 }
 
 
-void init_for_origin_target(struct request_line_uri_target *uri_target_p) {
-    uri_target_p->uri_target.origin_form.absolute_path = "";
-    uri_target_p->uri_target.origin_form.query = NULL;
+
+void init_target_struct_for_absolute_target(struct request_line_uri_target *uri_target_p) {
+    uri_target_p->uri_target.absolute_form.scheme = SCHEME_NONE;
+    
+    uri_target_p->uri_target.absolute_form.hier_part.authority.host.text = "";
+    uri_target_p->uri_target.absolute_form.hier_part.authority.host.host_type = NO_URI_HOST_TYPE_DEFINED;
+    uri_target_p->uri_target.absolute_form.hier_part.authority.port = 0;
+    
+    uri_target_p->uri_target.absolute_form.hier_part.path = "";
+    
+    uri_target_p->uri_target.absolute_form.query = NULL;
 }
+
+void clear_target_struct(struct request_line_uri_target *uri_target_p) {
+    union uri_target_values *target_value_p = &(uri_target_p->uri_target);
+    size_t target_value_size = sizeof(uri_target_p->uri_target);
+    memset(target_value_p, 0, target_value_size);
+}
+
 
 int is_alpha(char c) {
     return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A);
@@ -352,97 +410,4 @@ int parsing_for_asterisk_form(struct http_uri_target_parser *uri_parser_p, char 
     return 0;
 }
 
-int parsing_for_origin_form(struct http_uri_target_parser *uri_parser_p, char **cursor) {
-    if (uri_parser_p->state == UT_START && **cursor == '/') {
-        uri_parser_p->start_p = (*cursor);
-        (*cursor)++;
-        uri_parser_p->state = UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL;
-        return 1;
-    } else if (uri_parser_p->state >= UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL && uri_parser_p->state <= UT_PARSE_FOR_ORIGIN_QUERY) {
-        return 1;
-    }
-    return 0;
-}
 
-void parse_for_origin(struct request_line_uri_target *uri_target_p, struct http_uri_target_parser *uri_parser_p, char **cursor, char *end) {
-    char *val;
-    init_for_origin_target(uri_target_p);
-    int still_parsing;
-
-    // int run = 0;
-    while ((still_parsing = *cursor <= end)) {
-        if (**cursor == '#') {
-            uri_parser_p->state = INVALID_URI_TARGET;
-            uri_target_p->form = URI_FORM_NOT_SET;
-            return;
-        } else if (uri_parser_p->state >= UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL && uri_parser_p->state <=UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_2) {
-                if (**cursor == '?') {
-                    val = cpy_str(uri_parser_p->start_p, *cursor);
-                    if (val == NULL) {
-                        print_server_error("malloc error in cpy_str");
-                        uri_parser_p->state = INVALID_URI_TARGET;
-                        return;
-                    }
-                    uri_target_p->uri_target.origin_form.absolute_path = val;
-                    uri_parser_p->state = UT_PARSE_FOR_ORIGIN_QUERY;
-                    uri_parser_p->start_p = *cursor;
-                } else if (**cursor == ' ') {
-                    // handle no query
-                    if (uri_parser_p->state == UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL) {
-                        val = cpy_str(uri_parser_p->start_p, *cursor);
-                        // printf("cursor == space and uri_parser_p->state == UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL");
-                        if (val == NULL) {
-                            print_server_error("malloc error in cpy_str");
-                            uri_parser_p->state = INVALID_URI_TARGET;
-                            return;
-                        }
-                        uri_target_p->uri_target.origin_form.absolute_path = val;
-                        uri_target_p->form = ORIGIN_FORM;
-                        uri_parser_p->state = VALID_URI_TARGET;
-                    } else {
-                        uri_parser_p->state = INVALID_URI_TARGET;
-                        uri_target_p->form = URI_FORM_NOT_SET;
-                    }
-                    return;
-                } else if (**cursor == '%') {
-                    if (uri_parser_p->state != UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL) {
-                        uri_parser_p->state = INVALID_URI_TARGET;
-                        uri_target_p->form = URI_FORM_NOT_SET;
-                        return;
-                    }
-                    uri_parser_p->state = UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_1;
-                } else if (is_pchar(**cursor) || **cursor == '/') {
-                    if (uri_parser_p->state == UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_1 || uri_parser_p->state == UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_2) {
-                        if (!is_hex_digit(**cursor)) {
-                            uri_parser_p->state = INVALID_URI_TARGET;
-                            uri_target_p->form = URI_FORM_NOT_SET;
-                            return;
-                        }
-                        if (uri_parser_p->state == UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_1)
-                        uri_parser_p->state = UT_PARSE_FOR_ORIGIN_ABS_PATH_EXPT_PCT_HEX_2;
-                        else
-                        uri_parser_p->state = UT_PARSE_FOR_ORIGIN_ABS_PATH_NORMAL;
-                    }
-                } else {
-                    uri_parser_p->state = INVALID_URI_TARGET;
-                    uri_target_p->form = URI_FORM_NOT_SET;
-                    return;
-                }
-        } else if (uri_parser_p->state == UT_PARSE_FOR_ORIGIN_QUERY) {
-            if (**cursor == ' ') {
-                val = cpy_str(uri_parser_p->start_p, *cursor);
-                if (val == NULL) {
-                    print_server_error("malloc error in cpy_str");
-                    uri_parser_p->state = INVALID_URI_TARGET;
-                    return;
-                }
-                uri_target_p->uri_target.origin_form.query = val;
-                uri_target_p->form = ORIGIN_FORM;
-                uri_parser_p->state = VALID_URI_TARGET;
-                uri_parser_p->start_p = *cursor;
-                return;
-            }
-        }
-        (*cursor)++;
-        }
-    }

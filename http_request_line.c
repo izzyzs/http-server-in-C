@@ -444,7 +444,7 @@ void parse_method_for_TRACE(enum http_method *http_method_p, enum http_method_st
 
 void parse_request_method(struct http_req_line_parser *req_line_parser, char **cursor, char *end, enum http_method *method) {
     enum http_method_state *method_state_p = &(req_line_parser->method_state);
-    enum http_method method;
+    // enum http_method method;
     
     
     while (*cursor <= end && method_parsing_not_done(*method_state_p)) {
