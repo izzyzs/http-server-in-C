@@ -9,6 +9,5 @@ for reading from a file descriptor.
 
 I'm referencing RFC 9110 and 9112 in an attempt to implement HTTP. Going well so far and I'm actually enjoying it.
 Working at the edge of my understanding so as to continue to grow it is quite the enjoyable experience.
-Can't wait to get to the point where this can translate into material success.
 
-- Ismael
+\- Ismael
